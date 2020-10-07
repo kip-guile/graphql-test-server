@@ -1,34 +1,23 @@
 const axios = require('axios');
+const Users = require('./users');
 const { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull, } = require('graphql');
-const CustomerType = new GraphQLObjectType({
-    name: 'Customer',
+const UserType = new GraphQLObjectType({
+    name: 'User',
     fields: () => ({
-        id: { type: GraphQLString },
-        name: { type: GraphQLString },
+        _id: { type: GraphQLString },
+        username: { type: GraphQLString },
         email: { type: GraphQLString },
-        age: { type: GraphQLString },
+        createdAt: { type: GraphQLString },
+        updatedAt: { type: GraphQLString },
     }),
 });
 const RootQuery = new GraphQLObjectType({
     name: 'RootQueryType',
     fields: {
-        customer: {
-            type: CustomerType,
-            args: {
-                id: { type: GraphQLString },
-            },
+        users: {
+            type: new GraphQLList(UserType),
             resolve(parentValue, args) {
-                return axios
-                    .get('http://localhost:3000/customers/' + args.id)
-                    .then((res) => res.data);
-            },
-        },
-        customers: {
-            type: new GraphQLList(CustomerType),
-            resolve(parentValue, args) {
-                return axios
-                    .get('http://localhost:3000/customers/')
-                    .then((res) => res.data);
+                return Users.find({}).then((users) => users);
             },
         },
     },
@@ -36,46 +25,44 @@ const RootQuery = new GraphQLObjectType({
 const mutation = new GraphQLObjectType({
     name: 'Mutation',
     fields: {
-        addCustomer: {
-            type: CustomerType,
+        addUser: {
+            type: UserType,
             args: {
-                name: { type: new GraphQLNonNull(GraphQLString) },
+                username: { type: new GraphQLNonNull(GraphQLString) },
                 email: { type: new GraphQLNonNull(GraphQLString) },
-                age: { type: new GraphQLNonNull(GraphQLInt) },
             },
             resolve(parentValue, args) {
-                return axios
-                    .post('http://localhost:3000/customers/', {
-                    name: args.name,
+                const newUser = new Users({
+                    username: args.username,
                     email: args.email,
-                    age: args.age,
-                })
-                    .then((res) => res.data);
+                });
+                newUser.id = newUser._id;
+                return newUser.save().then((user) => user);
             },
         },
-        deleteCustomer: {
-            type: CustomerType,
+        deleteUser: {
+            type: UserType,
             args: {
-                id: { type: new GraphQLNonNull(GraphQLString) },
+                _id: { type: new GraphQLNonNull(GraphQLString) },
             },
             resolve(parentValue, args) {
-                return axios
-                    .delete('http://localhost:3000/customers/' + args.id)
-                    .then((res) => res.data);
+                return Users.deleteOne({ _id: args._id }).then((res) => res);
             },
         },
-        editCustomer: {
-            type: CustomerType,
+        editUser: {
+            type: UserType,
             args: {
-                id: { type: new GraphQLNonNull(GraphQLString) },
-                name: { type: GraphQLString },
+                _id: { type: new GraphQLNonNull(GraphQLString) },
+                username: { type: GraphQLString },
                 email: { type: GraphQLString },
-                age: { type: GraphQLInt },
             },
             resolve(parentValue, args) {
-                return axios
-                    .patch('http://localhost:3000/customers/' + args.id, args)
-                    .then((res) => res.data);
+                return Users.findOneAndUpdate({ _id: args._id }, {
+                    $set: {
+                        username: args.username,
+                        email: args.email,
+                    },
+                }, { new: true }).then((res) => res);
             },
         },
     },
